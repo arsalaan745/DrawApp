@@ -4,31 +4,45 @@ import { JWT_SECRET } from "@repo/backend-common/config";
 import { middleware } from "./middleware";
 import { CreateUserSchema, SigninSchema, CreateRoomSchema } from "@repo/common/types";
 import { prismaClient } from "@repo/db/client";
+import bcrypt from "bcrypt";
 const app = express();
+app.use(express.json());
 
 app.post("/signup", async (req, res) => {
   const parsedData = CreateUserSchema.safeParse(req.body);
   if (!parsedData.success) {
-   res.json({
+    res.status(401).json({
       message: "Incorrect inputs",
     });
     return;
   }
+  const { username, password, name } = parsedData.data; 
   try{
-    await prismaClient.user.create({
+    const existingUser = await prismaClient.user.findUnique({
+      where: {email: username},
+    })
+    if (existingUser){
+       res.status(409).json({
+        message: "User already exists"
+      })
+      return
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+   const user = await prismaClient.user.create({
       data:{
         email: parsedData.data?.username,
-      password: parsedData.data.password,
+      password: hashedPassword,
       name: parsedData.data.name,
       }
       
     })
-    res.json({
-      userId: "123",
+    res.status(201).json({
+      userId: user.id,
     });
   } catch (err){
     res.status(411).json({
-      message: "User already exists"
+      message: "Something went wrong"
     })
   }
   
