@@ -100,7 +100,7 @@ try{
 } 
 });
 
-app.post("/room", middleware, (req, res) => {
+app.post("/room", middleware, async (req, res) => {
   const parsedData = CreateRoomSchema.safeParse(req.body);
   if (!parsedData.success) {
     res.json({
@@ -108,10 +108,24 @@ app.post("/room", middleware, (req, res) => {
     });
     return;
   }
-
-  res.json({
-    roomId: 123,
-  });
+  // @ts-ignore
+  const userId = req.userId;
+  
+  try{
+    const room = await prismaClient.room.create({
+      data:{
+        slug: parsedData.data.name,
+        adminId: userId
+      }
+    })
+    res.json({
+      roomId: room.id,
+    });
+  }catch(err){
+    res.status(411).json({
+      message: "Room already exists"
+    })
+  }
 });
 
 app.get("/chats", middleware, (req, res) => {});
@@ -119,3 +133,8 @@ app.get("/chats", middleware, (req, res) => {});
 app.listen(3001, () => {
   console.log("Server running on port 3001");
 });
+
+
+
+// userId: 19788a2c-e5ca-47dd-970b-80a9b4c01ecd
+// token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxOTc4OGEyYy1lNWNhLTQ3ZGQtOTcwYi04MGE5YjRjMDFlY2QiLCJpYXQiOjE3NDUxNDQ1MjR9.rwL_tgnWYJZlqTATwGXsYRol9_oAH5jYD4iiKwNEAto
