@@ -26,7 +26,7 @@ app.post("/signup", async (req, res) => {
     const existingUser = await prismaClient.user.findUnique({
       where: { email: username },
     });
-    
+
     if (existingUser) {
       res.status(409).json({
         message: "User already exists",
@@ -62,69 +62,75 @@ app.post("/signin", async (req, res) => {
     return;
   }
 
-  const { username, password} = parsedData.data;
-try{
-  const user = await prismaClient.user.findUnique({
-    where: {
-      email: username,
-    },
-  });
-
-  if (!user) {
-    res.status(401).json({
-      message: "Invalid username or password",
+  const { username, password } = parsedData.data;
+  try {
+    const user = await prismaClient.user.findUnique({
+      where: {
+        email: username,
+      },
     });
-    return;
-  }
 
-  const isPasswordCorrect = await bcrypt.compare(password, user.password);
-  if(!isPasswordCorrect){
-    res.status(401).json({
-      message: "Invalid username or password"
-    })
+    if (!user) {
+      res.status(401).json({
+        message: "Invalid username or password",
+      });
+      return;
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      res.status(401).json({
+        message: "Invalid username or password",
+      });
+    }
+    const token = jwt.sign(
+      {
+        userId: user.id,
+      },
+      JWT_SECRET
+    );
+    res.status(201).json({
+      message: "User signed in succelfully",
+      token,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Something went wrong",
+    });
   }
-  const token = jwt.sign(
-    {
-      userId: user.id,
-    },
-    JWT_SECRET
-  );
-  res.status(201).json({
-    message: "User signed in succelfully",
-    token,
-  });
-} catch(err){
-  res.status(500).json({
-    message: "Something went wrong"
-  })
-} 
 });
 
 app.post("/room", middleware, async (req, res) => {
   const parsedData = CreateRoomSchema.safeParse(req.body);
   if (!parsedData.success) {
-    res.json({
+    res.status(411).json({
       message: "Incorrect inputs",
     });
     return;
   }
   // @ts-ignore
   const userId = req.userId;
-  
-  try{
+  if (!userId) {
+    res.status(401).json({
+      message: "Unauthorized",
+    });
+    return;
+  }
+
+  try {
     const room = await prismaClient.room.create({
-      data:{
+      data: {
         slug: parsedData.data.name,
-        adminId: userId
-      }
-    })
-    res.json({
+        adminId: userId,
+      },
+    });
+    res.status(201).json({
       roomId: room.id,
     });
-  }catch(err){
+  } catch (err) {
     res.status(411).json({
-      message: "Room already exists"
-    })
+      message: "Room already exists",
+    });
   }
 });
 
@@ -133,8 +139,3 @@ app.get("/chats", middleware, (req, res) => {});
 app.listen(3001, () => {
   console.log("Server running on port 3001");
 });
-
-
-
-// userId: 19788a2c-e5ca-47dd-970b-80a9b4c01ecd
-// token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxOTc4OGEyYy1lNWNhLTQ3ZGQtOTcwYi04MGE5YjRjMDFlY2QiLCJpYXQiOjE3NDUxNDQ1MjR9.rwL_tgnWYJZlqTATwGXsYRol9_oAH5jYD4iiKwNEAto
