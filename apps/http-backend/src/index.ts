@@ -134,7 +134,9 @@ app.post("/room", middleware, async (req, res) => {
   }
 });
 
-app.get("/chats", middleware, (req, res) => {});
+app.get("/chats/:roomId", middleware, (req, res) => {
+  
+});
 
 app.listen(3001, () => {
   console.log("Server running on port 3001");
