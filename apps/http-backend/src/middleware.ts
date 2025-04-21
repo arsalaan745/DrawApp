@@ -1,29 +1,47 @@
-import { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
+import { RequestHandler } from "express";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config";
 
-declare module "express"{
-    interface Request{
-        userId?: string;
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
     }
-}
-
-interface DecodedToken{
-    userId: string;
-}
-
-
-export function middleware(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers["authorization"] ?? "";
-
-  const decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
-
-  if (decoded) {
-    req.userId = decoded.userId;
-    next();
-  } else {
-    res.status(403).json({
-      message: "Unauthorized",
-    });
   }
 }
+
+export const middleware: RequestHandler = (req, res, next): void => {
+  const authHeader = req.headers["authorization"];
+
+  //Checking if the token is missing
+  if (!authHeader) {
+    res.status(401).json({ message: "No token provided" });
+    return;
+  }
+  // extracting the token
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : authHeader;
+
+    //token might be undefind so checking for it
+  if (!token) {
+    res.status(401).json({ message: "Invalid token format" });
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+
+    if (
+      typeof decoded === "object" && decoded !== null && "userId" in decoded) {
+      req.userId = (decoded as JwtPayload).userId as string;
+      next();
+    } else {
+      res.status(403).json({ message: "Invalid token payload" });
+      return;
+    }
+  } catch (err) {
+    res.status(403).json({ message: "Unauthorized" });
+    return;
+  }
+};
