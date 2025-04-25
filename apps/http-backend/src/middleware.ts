@@ -11,21 +11,11 @@ declare global {
 }
 
 export const middleware: RequestHandler = (req, res, next): void => {
-  const authHeader = req.headers["authorization"];
+  const token = req.headers["authorization"] ?? "";
 
-  //Checking if the token is missing
-  if (!authHeader) {
-    res.status(401).json({ message: "No token provided" });
-    return;
-  }
-  // extracting the token
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.split(" ")[1]
-    : authHeader;
-
-    //token might be undefind so checking for it
+  // Check if token is missing
   if (!token) {
-    res.status(401).json({ message: "Invalid token format" });
+    res.status(401).json({ message: "No token provided" });
     return;
   }
 
@@ -33,15 +23,16 @@ export const middleware: RequestHandler = (req, res, next): void => {
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
     if (
-      typeof decoded === "object" && decoded !== null && "userId" in decoded) {
-      req.userId = (decoded as JwtPayload).userId as string;
+      typeof decoded === "object" &&
+      decoded !== null &&
+      "userId" in decoded
+    ) {
+      req.userId = decoded.userId as string;
       next();
     } else {
       res.status(403).json({ message: "Invalid token payload" });
-      return;
     }
   } catch (err) {
     res.status(403).json({ message: "Unauthorized" });
-    return;
   }
 };
