@@ -13,6 +13,12 @@ type Shape =
       centerX: number;
       centerY: number;
       radius: number;
+    } | {
+      type: "pencil";
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
     };
 export async function initDraw(
   canvas: HTMLCanvasElement,
@@ -52,16 +58,33 @@ export async function initDraw(
     clicked = false;
     const width = e.clientX - startX;
     const height = e.clientY - startY;
-    const shape: Shape = {
-      type: "rect",
-      x: startX,
-      y: startY,
-      height,
-      width,
-    };
-    existingShapes.push(shape);
-    socket.send(
-      JSON.stringify({
+    //@ts-ignore
+    const selectedTool = window.selectedTool;
+    let shape: Shape | null = null;
+    if(selectedTool === "rect") {
+       shape = {
+        type: "rect",
+        x: startX,
+        y: startY,
+        height,
+        width,
+      } 
+    }
+ else if (selectedTool === "circle") {
+  const radius = Math.max(width, height) / 2;
+  shape = {
+    type: "circle",
+    radius: radius,
+    centerX: startX + radius,
+    centerY: startY+ radius,
+  }
+}
+if(!shape){
+  return; 
+}
+existingShapes.push(shape);  
+
+    socket.send(JSON.stringify({
         type: "chat",
         message: JSON.stringify({
           shape,
@@ -77,7 +100,19 @@ export async function initDraw(
       const height = e.clientY - startY;
       clearCanvas(existingShapes, canvas, ctx);
       ctx.strokeStyle = "rgb(255, 255, 255)";
-      ctx.strokeRect(startX, startY, width, height);
+      //@ts-ignore
+      const selectedTool = window.selectedTool;
+      if(selectedTool === "rect") {
+        ctx.strokeRect(startX, startY, width, height);
+      } else if ( selectedTool === "circle"){
+        const radius = Math.max(width, height) / 2;
+        const centerX = startX + radius;
+        const centerY = startX + radius;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI *2);
+        ctx.stroke();
+        ctx.closePath();
+      }
     }
   });
 }
@@ -95,6 +130,11 @@ function clearCanvas(
     if (shape.type === "rect") {
       ctx.strokeStyle = "rgb(255, 255, 255)";
       ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+    } else if (shape.type === "circle"){
+        ctx.beginPath();
+        ctx.arc(shape.centerX, shape.centerY, shape.radius, 0, Math.PI *2);
+        ctx.stroke();
+        ctx.closePath();
     }
   });
 }
@@ -102,7 +142,7 @@ function clearCanvas(
 async function getExistingShapes(roomId: string) {
   const res = await axios.get(`${HTTP_BACKEND}/chats/${roomId}`,{
     headers:{
-      Authorization : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmNzUxNDk0Zi00NjhhLTRkZDUtOGQ2Yy00ZDE2ZjdmMGM3YTUiLCJpYXQiOjE3NDU1MDg2NTV9.su22SbWT-z5PYDzUPiaatZ2Q_U8yoDccqR4UYy0BMQo",
+      Authorization : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIyMmU0ZDAwNi1lOThhLTQ4OGQtOWEyYi1lOWVmMWVmNmJlNzMiLCJpYXQiOjE3NDU3NjY4MTh9.30PpAecJMf-aCZUMcPMy2IJtrPiA7t5wEqiR_ICAD7o",
     },
   });
   const messages = res.data.messages;
